@@ -30,8 +30,30 @@ se <- function(x, na.rm){
 
 ```{r Import data}
 
+# https://github.com/sydneylwilliams/Mussel_Plankton_Manuscript.git
+
+# download a .zip file of repository and unzip
+download.file(url = "https://github.com/sydneylwilliams/Mussel_Plankton_Manuscript/archive/refs/heads/main.zip", destfile = "Mussel_Plankton_MS.zip")
+
+unzip(zipfile = "Mussel_Plankton_MS.zip")
+
+fls <- list.files(
+  here::here("GitHub/Mussel_Plankton_Manuscript-main")
+)
+
+dir <- here::here("GitHub/Mussel_Plankton_Manuscript-main")
+
+
+
+# bulk chl. a data
+# remove outliers 
+chl <- read.csv(paste0(dir, "/", fls[1])) %>%
+  mutate(SampleType = factor(SampleType, levels = c("Grab", "Control", "Mussel")),
+         Vial_ID = ifelse(Notes == "outlier", NA, Vial_ID)) %>%
+  drop_na(Vial_ID) 
+
 # phytoplankton identification data based on taxonomic group
-community <- read.csv("Data/PhytoplanktonID_FunctionalGroup_CopepodsRemoved.csv") %>%
+community <- read.csv(paste0(dir, "/", fls[3])) %>%
   filter(FunctionalGroup_zoo != "Ruptured cell") %>%
   group_by(Site, Sample, Replicate) %>%
   mutate(RelativeAbundance = FunctionalCountSum_mL/sum(FunctionalCountSum_mL),
@@ -39,15 +61,8 @@ community <- read.csv("Data/PhytoplanktonID_FunctionalGroup_CopepodsRemoved.csv"
          FunctionalGroup_zoo = factor(FunctionalGroup_zoo, levels = c("Pennate diatom", "Centric diatom", "Dinoflagellate", "Heterotrophic zooplankton")),
          Sample = factor(Sample, levels = c("Grab", "Control", "Mussel")))
 
-# bulk chl. a data
-# remove outliers 
-chl <- read.csv("Data/CHLA.csv") %>%
-  mutate(SampleType = factor(SampleType, levels = c("Grab", "Control", "Mussel")),
-         Vial_ID = ifelse(Notes == "outlier", NA, Vial_ID)) %>%
-  drop_na(Vial_ID) 
-
 # YSI data
-ysi <- read.csv("Data/YSI_use.csv") %>%
+ysi <- read.csv(paste0(dir, "/", fls[6])) %>%
   rename(Site = 1) %>%
   drop_na(Temp) %>%
   mutate(SampleType = ifelse(str_detect(Plot, "C") == T, "cordgrass only",
