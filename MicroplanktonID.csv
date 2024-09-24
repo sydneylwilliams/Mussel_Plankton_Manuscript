@@ -1,0 +1,181 @@
+Site,Sample,Replicate,FunctionalGroup_zoo,FunctionalCountSum_mL
+CA,Control,1,Centric diatom,528
+CA,Control,2,Centric diatom,212
+CA,Control,3,Centric diatom,512
+CA,Control,5,Centric diatom,208
+CA,Control,1,Dinoflagellate,512
+CA,Control,2,Dinoflagellate,164
+CA,Control,3,Dinoflagellate,188
+CA,Control,5,Dinoflagellate,80
+CA,Control,1,Heterotrophic zooplankton,4
+CA,Control,2,Heterotrophic zooplankton,16
+CA,Control,3,Heterotrophic zooplankton,12
+CA,Control,5,Heterotrophic zooplankton,12
+CA,Control,1,Pennate diatom,1064
+CA,Control,2,Pennate diatom,528
+CA,Control,3,Pennate diatom,656
+CA,Control,5,Pennate diatom,448
+CA,Control,1,Ruptured cell,912
+CA,Control,2,Ruptured cell,20
+CA,Control,3,Ruptured cell,56
+CA,Control,5,Ruptured cell,8
+CA,Grab,1,Centric diatom,460
+CA,Grab,3,Centric diatom,388
+CA,Grab,4,Centric diatom,236
+CA,Grab,5,Centric diatom,536
+CA,Grab,1,Dinoflagellate,188
+CA,Grab,3,Dinoflagellate,196
+CA,Grab,4,Dinoflagellate,160
+CA,Grab,5,Dinoflagellate,120
+CA,Grab,1,Heterotrophic zooplankton,12
+CA,Grab,3,Heterotrophic zooplankton,12
+CA,Grab,4,Heterotrophic zooplankton,28
+CA,Grab,5,Heterotrophic zooplankton,8
+CA,Grab,1,Pennate diatom,776
+CA,Grab,3,Pennate diatom,684
+CA,Grab,4,Pennate diatom,524
+CA,Grab,5,Pennate diatom,600
+CA,Grab,1,Ruptured cell,4
+CA,Grab,3,Ruptured cell,32
+CA,Grab,4,Ruptured cell,72
+CA,Grab,5,Ruptured cell,4
+CA,Mussel,1,Centric diatom,48
+CA,Mussel,2,Centric diatom,60
+CA,Mussel,3,Centric diatom,26
+CA,Mussel,4,Centric diatom,64
+CA,Mussel,1,Dinoflagellate,70
+CA,Mussel,2,Dinoflagellate,30
+CA,Mussel,3,Dinoflagellate,28
+CA,Mussel,4,Dinoflagellate,70
+CA,Mussel,1,Heterotrophic zooplankton,2
+CA,Mussel,2,Heterotrophic zooplankton,4
+CA,Mussel,3,Heterotrophic zooplankton,0
+CA,Mussel,4,Heterotrophic zooplankton,2
+CA,Mussel,1,Pennate diatom,90
+CA,Mussel,2,Pennate diatom,52
+CA,Mussel,3,Pennate diatom,38
+CA,Mussel,4,Pennate diatom,144
+CA,Mussel,1,Ruptured cell,246
+CA,Mussel,2,Ruptured cell,46
+CA,Mussel,3,Ruptured cell,20
+CA,Mussel,4,Ruptured cell,20
+DC,Control,2,Centric diatom,208
+DC,Control,3,Centric diatom,220
+DC,Control,4,Centric diatom,68
+DC,Control,5,Centric diatom,240
+DC,Control,2,Dinoflagellate,156
+DC,Control,3,Dinoflagellate,104
+DC,Control,4,Dinoflagellate,112
+DC,Control,5,Dinoflagellate,92
+DC,Control,2,Heterotrophic zooplankton,0
+DC,Control,3,Heterotrophic zooplankton,8
+DC,Control,4,Heterotrophic zooplankton,16
+DC,Control,5,Heterotrophic zooplankton,16
+DC,Control,2,Pennate diatom,324
+DC,Control,3,Pennate diatom,272
+DC,Control,4,Pennate diatom,336
+DC,Control,5,Pennate diatom,264
+DC,Control,2,Ruptured cell,24
+DC,Control,3,Ruptured cell,20
+DC,Control,4,Ruptured cell,28
+DC,Control,5,Ruptured cell,8
+DC,Grab,2,Centric diatom,208
+DC,Grab,3,Centric diatom,236
+DC,Grab,4,Centric diatom,176
+DC,Grab,5,Centric diatom,264
+DC,Grab,2,Dinoflagellate,156
+DC,Grab,3,Dinoflagellate,164
+DC,Grab,4,Dinoflagellate,168
+DC,Grab,5,Dinoflagellate,180
+DC,Grab,2,Heterotrophic zooplankton,16
+DC,Grab,3,Heterotrophic zooplankton,0
+DC,Grab,4,Heterotrophic zooplankton,4
+DC,Grab,5,Heterotrophic zooplankton,4
+DC,Grab,2,Pennate diatom,240
+DC,Grab,3,Pennate diatom,332
+DC,Grab,4,Pennate diatom,252
+DC,Grab,5,Pennate diatom,260
+DC,Grab,2,Ruptured cell,44
+DC,Grab,3,Ruptured cell,120
+DC,Grab,4,Ruptured cell,84
+DC,Grab,5,Ruptured cell,92
+DC,Mussel,1,Centric diatom,16
+DC,Mussel,3,Centric diatom,10
+DC,Mussel,4,Centric diatom,0
+DC,Mussel,5,Centric diatom,46
+DC,Mussel,1,Dinoflagellate,52
+DC,Mussel,3,Dinoflagellate,62
+DC,Mussel,4,Dinoflagellate,54
+DC,Mussel,5,Dinoflagellate,34
+DC,Mussel,1,Heterotrophic zooplankton,0
+DC,Mussel,3,Heterotrophic zooplankton,0
+DC,Mussel,4,Heterotrophic zooplankton,2
+DC,Mussel,5,Heterotrophic zooplankton,4
+DC,Mussel,1,Pennate diatom,32
+DC,Mussel,3,Pennate diatom,38
+DC,Mussel,4,Pennate diatom,24
+DC,Mussel,5,Pennate diatom,34
+DC,Mussel,1,Ruptured cell,52
+DC,Mussel,3,Ruptured cell,24
+DC,Mussel,4,Ruptured cell,12
+DC,Mussel,5,Ruptured cell,26
+RBH,Control,1,Centric diatom,108
+RBH,Control,2,Centric diatom,84
+RBH,Control,3,Centric diatom,32
+RBH,Control,4,Centric diatom,44
+RBH,Control,1,Dinoflagellate,260
+RBH,Control,2,Dinoflagellate,132
+RBH,Control,3,Dinoflagellate,140
+RBH,Control,4,Dinoflagellate,172
+RBH,Control,1,Heterotrophic zooplankton,8
+RBH,Control,2,Heterotrophic zooplankton,4
+RBH,Control,3,Heterotrophic zooplankton,4
+RBH,Control,4,Heterotrophic zooplankton,4
+RBH,Control,1,Pennate diatom,152
+RBH,Control,2,Pennate diatom,72
+RBH,Control,3,Pennate diatom,160
+RBH,Control,4,Pennate diatom,104
+RBH,Control,1,Ruptured cell,176
+RBH,Control,2,Ruptured cell,236
+RBH,Control,3,Ruptured cell,220
+RBH,Control,4,Ruptured cell,104
+RBH,Grab,1,Centric diatom,84
+RBH,Grab,2,Centric diatom,32
+RBH,Grab,3,Centric diatom,100
+RBH,Grab,4,Centric diatom,28
+RBH,Grab,1,Dinoflagellate,180
+RBH,Grab,2,Dinoflagellate,112
+RBH,Grab,3,Dinoflagellate,88
+RBH,Grab,4,Dinoflagellate,116
+RBH,Grab,1,Heterotrophic zooplankton,4
+RBH,Grab,2,Heterotrophic zooplankton,16
+RBH,Grab,3,Heterotrophic zooplankton,8
+RBH,Grab,4,Heterotrophic zooplankton,8
+RBH,Grab,1,Pennate diatom,100
+RBH,Grab,2,Pennate diatom,76
+RBH,Grab,3,Pennate diatom,76
+RBH,Grab,4,Pennate diatom,104
+RBH,Grab,1,Ruptured cell,48
+RBH,Grab,2,Ruptured cell,100
+RBH,Grab,3,Ruptured cell,88
+RBH,Grab,4,Ruptured cell,36
+RBH,Mussel,1,Centric diatom,0
+RBH,Mussel,2,Centric diatom,20
+RBH,Mussel,3,Centric diatom,20
+RBH,Mussel,4,Centric diatom,0
+RBH,Mussel,1,Dinoflagellate,0
+RBH,Mussel,2,Dinoflagellate,16
+RBH,Mussel,3,Dinoflagellate,40
+RBH,Mussel,4,Dinoflagellate,12
+RBH,Mussel,1,Heterotrophic zooplankton,0
+RBH,Mussel,2,Heterotrophic zooplankton,0
+RBH,Mussel,3,Heterotrophic zooplankton,0
+RBH,Mussel,4,Heterotrophic zooplankton,0
+RBH,Mussel,1,Pennate diatom,36
+RBH,Mussel,2,Pennate diatom,16
+RBH,Mussel,3,Pennate diatom,36
+RBH,Mussel,4,Pennate diatom,8
+RBH,Mussel,1,Ruptured cell,92
+RBH,Mussel,2,Ruptured cell,124
+RBH,Mussel,3,Ruptured cell,132
+RBH,Mussel,4,Ruptured cell,84

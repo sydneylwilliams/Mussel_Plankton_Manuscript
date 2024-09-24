@@ -1,0 +1,901 @@
+---
+title: "Top-down control by ribbed mussels (Geukensia demissa) on microplankton communities in southeastern U.S. salt marshes"
+author: "Sydney Williams"
+date: "09/24/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(SciViews)
+library(rstatix)
+library(ggthemes)
+# library(brms) # Bayesian Regression Models using 'Stan'
+# library(cmdstanr) # R Interface to 'CmdStan'
+# library(bayesplot) # Plotting for Bayesian Models
+# library(posterior) # summarize draws
+# library(emmeans)
+# library(flextable)
+# library(purrr)
+# library(broom)
+# 
+# set_cmdstan_path("C:/Program Files/.cmdstan/cmdstan-2.32.2/")
+
+# Standard error function
+se <- function(x, na.rm){
+ sd(x, na.rm = T) / sqrt(length(x[!is.na(x)]))
+}
+```
+
+```{r Import data}
+
+# phytoplankton identification data based on taxonomic group
+community <- read.csv("Data/PhytoplanktonID_FunctionalGroup_CopepodsRemoved.csv") %>%
+  filter(FunctionalGroup_zoo != "Ruptured cell") %>%
+  group_by(Site, Sample, Replicate) %>%
+  mutate(RelativeAbundance = FunctionalCountSum_mL/sum(FunctionalCountSum_mL),
+         Site = factor(Site, levels = c("CA", "DC", "RBH"), labels = c("Cabretta", "Dean Creek", "RBH Park")),
+         FunctionalGroup_zoo = factor(FunctionalGroup_zoo, levels = c("Pennate diatom", "Centric diatom", "Dinoflagellate", "Heterotrophic zooplankton")),
+         Sample = factor(Sample, levels = c("Grab", "Control", "Mussel")))
+
+# bulk chl. a data
+# remove outliers 
+chl <- read.csv("Data/CHLA.csv") %>%
+  mutate(SampleType = factor(SampleType, levels = c("Grab", "Control", "Mussel")),
+         Vial_ID = ifelse(Notes == "outlier", NA, Vial_ID)) %>%
+  drop_na(Vial_ID) 
+
+# YSI data
+ysi <- read.csv("Data/YSI_use.csv") %>%
+  rename(Site = 1) %>%
+  drop_na(Temp) %>%
+  mutate(SampleType = ifelse(str_detect(Plot, "C") == T, "cordgrass only",
+                              ifelse(str_detect(Plot, "Grab") == T, "water column", "mussel"))) %>%
+  pivot_longer(cols = c("Temp", "DO", "Salinity"),
+               names_to = "variable")
+
+```
+
+```{r chl. a -- Interaction between Site and Sample Type}
+
+# Bayesian framework for bulk chl. a stats
+CHLA_SitexType <- bf(EstimatedChlA_ug_L | mi() ~ Site*SampleType) + lognormal()
+
+chla_SampleType <- brm(
+  CHLA_SitexType,
+  data = chl,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+pp_check(chla_SampleType, ndraws = 100, resp = "EstimatedChlAugL")
+
+
+# extract median estimates
+chla_plot <- plot(conditional_effects(chla_SampleType))
+
+```
+
+```{r chl. a -- Interaction between Site and Sample Type effect estimates and table}
+
+chla_pos <- merge(summarise_draws(chla_SampleType), 
+                         summarise_draws(chla_SampleType, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+  filter(variable == "b_SampleTypeMussel" | variable == "b_SampleTypeControl") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+  
+
+# hypothesis testing for differences between sample types within sites
+# this was helpful:
+# https://github.com/paul-buerkner/brms/issues/95
+# Intercept = SiteCabretta:SampleTypeGrab
+
+chl_effectestimate <- hypothesis(chla_SampleType, c("SampleTypeMussel = SampleTypeControl",
+                              "SampleTypeControl + SiteDeanCreek:SampleTypeControl = 0", 
+                              "SampleTypeMussel + SiteDeanCreek:SampleTypeMussel = 0", 
+                              "SampleTypeMussel + SiteDeanCreek:SampleTypeMussel = SampleTypeControl + SiteDeanCreek:SampleTypeControl",
+                              "SampleTypeControl + SiteRBHPark:SampleTypeControl = 0",
+                              "SampleTypeMussel + SiteRBHPark:SampleTypeMussel = 0",
+                              "SampleTypeMussel + SiteRBHPark:SampleTypeMussel = SampleTypeControl + SiteRBHPark:SampleTypeControl"), robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(chla_pos) %>%
+  mutate(Site = ifelse(str_detect(Hypothesis, "RBHPark") == T, "RBH Park",
+                       ifelse(str_detect(Hypothesis, "DeanCreek") == T, "Dean Creek", "Cabretta"))) %>%
+  arrange(Site, Hypothesis) %>%
+    mutate(Estimate = round(Estimate, digits = 4)) %>%
+  rename(Contrast = "Hypothesis",
+         'Median estimate' = "Estimate",
+         lower = "CI.Lower",
+         upper = "CI.Upper") %>%
+  mutate(lower = round(lower, digits = 4),
+         upper = round(upper, digits = 4),
+         '95% CI' = paste("(", lower, ",", " ", upper, ")", sep = "")) %>%
+  dplyr::select(c(Site, Contrast, 'Median estimate', '95% CI')) %>%
+  flextable() %>%
+  merge_v(j = c('Site')) %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top") %>%
+  width(j = c('Median estimate', '95% CI'), width = 4, unit = "cm") %>%
+  border_inner_h()
+
+save_as_pptx(chl_effectestimate, path = "Figures/CHLAEstimateSummary_use.pptx")
+  
+
+```
+
+```{r chl. a -- Interaction between Site and Sample Interval for Grab samples only}
+# drop T2 for grab samples
+
+chl_grab <- chl %>%
+  filter(SampleType == "Grab") %>%
+  drop_na(GFF_ID)
+
+CHLA_Grab <- bf(EstimatedChlA_ug_L ~ Site*SampleInterval) 
+
+chla_grab <- brm(
+  CHLA_Grab,
+  data = chl_grab,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+pp_check(chla_grab, ndraws = 100, resp = "EstimatedChlAugL")
+```
+
+```{r chl. a -- Interaction between sample type and sample interval for cordgrass and mussel plots}
+# separate out complete df by site
+# for site-specific analyses of differences between sample intervals within sample types
+sitelist <- split(chl %>% filter(SampleType != "Grab"), chl$Site)
+
+lapply(seq_along(sitelist), function(x) {
+    assign(c("CA_chl", "DC_chl", "RBH_chl")[x], sitelist[[x]], envir=.GlobalEnv)
+    }
+)
+
+CHLA_TypexInterval <- bf(EstimatedChlA_ug_L | mi() ~ SampleType*SampleInterval)
+
+
+chla_CA <- brm(
+  CHLA_TypexInterval,
+  data = CA_chl,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+chla_DC <- brm(
+  CHLA_TypexInterval,
+  data = DC_chl,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+chla_RBH <- brm(
+  CHLA_TypexInterval,
+  data = RBH_chl,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+pp_check(chla_CA, ndraws = 100, resp = "EstimatedChlAugL")
+pp_check(chla_DC, ndraws = 100, resp = "EstimatedChlAugL")
+pp_check(chla_RBH, ndraws = 100, resp = "EstimatedChlAugL")
+
+```
+
+```{r chl. a -- Interaction between sample type and sample interval plots}
+chla_CA_plot <- plot(conditional_effects(chla_CA),
+     points = TRUE,
+     theme = theme_tufte(),
+     point_args = list(width = .2),
+     ask = FALSE)
+
+chla_CA_plot[["SampleType:SampleInterval"]][["data"]] <- chla_CA_plot[["SampleType:SampleInterval"]][["data"]] %>%
+  mutate(interaction = paste(SampleType, SampleInterval)) %>%
+  filter(interaction != "Grab T2")
+
+chla_DC_plot <- plot(conditional_effects(chla_DC),
+     points = TRUE,
+     theme = theme_tufte(),
+     point_args = list(width = .2),
+     ask = FALSE)
+
+chla_DC_plot[["SampleType:SampleInterval"]][["data"]] <- chla_DC_plot[["SampleType:SampleInterval"]][["data"]] %>%
+  mutate(interaction = paste(SampleType, SampleInterval)) %>%
+  filter(interaction != "Grab T2")
+
+chla_RBH_plot <- plot(conditional_effects(chla_RBH),
+     points = TRUE,
+     theme = theme_tufte(),
+     point_args = list(width = .2),
+     ask = FALSE)
+
+chla_RBH_plot[["SampleType:SampleInterval"]][["data"]] <- chla_RBH_plot[["SampleType:SampleInterval"]][["data"]] %>%
+  mutate(interaction = paste(SampleType, SampleInterval)) %>%
+  filter(interaction != "Grab T2")
+
+chla_CA_plot[["SampleType:SampleInterval"]] + 
+  ylim(-1,8) +
+  theme(axis.line = element_line())
+
+chla_DC_plot[["SampleType:SampleInterval"]] +  
+  ylim(-1,8) +
+  theme(axis.line = element_line())
+
+chla_RBH_plot[["SampleType:SampleInterval"]] +  
+  ylim(-1,8) +
+  theme(axis.line = element_line())
+```
+
+```{r chl. a -- Interaction between sample type and sample interval effect estimates and table}
+chla_grab_pos <- merge(summarise_draws(chla_grab), 
+                         summarise_draws(chla_grab, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+    filter(variable == "b_SampleIntervalT1") %>%
+  mutate(variable = paste(variable, "grab")) %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+# Intercept = SiteCabretta:T0
+
+chla_grab_effectestimate <- hypothesis(chla_grab, c("SampleIntervalT1 + SiteDeanCreek:SampleIntervalT1 = 0",
+                      "SampleIntervalT1 + SiteRBHPark:SampleIntervalT1 = 0"), robust = T)[[1]] %>%
+    dplyr::select(c(1,2,4,5)) %>%
+  rbind(chla_grab_pos) %>%
+  mutate(Site = ifelse(str_detect(Hypothesis, "RBHPark") == T, "RBH Park",
+                       ifelse(str_detect(Hypothesis, "DeanCreek") == T, "Dean Creek", "Cabretta"))) %>%
+  arrange(Site, Hypothesis)
+
+
+
+
+chla_CA_pos <- merge(summarise_draws(chla_CA), 
+                         summarise_draws(chla_CA, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+      filter(variable == "b_SampleIntervalT1" | variable == "b_SampleIntervalT2") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+chla_DC_pos <- merge(summarise_draws(chla_DC), 
+                         summarise_draws(chla_DC, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+      filter(variable == "b_SampleIntervalT1" | variable == "b_SampleIntervalT2") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+chla_RBH_pos <- merge(summarise_draws(chla_RBH), 
+                         summarise_draws(chla_RBH, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+      filter(variable == "b_SampleIntervalT1" | variable == "b_SampleIntervalT2") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+# hypothesis testing for differences between sample intervals within sample types
+# intercept = SampleTypeControl:SampleIntervalT0
+
+chl_hypo <- c("SampleIntervalT1 = SampleIntervalT2",
+              "0 = SampleIntervalT1 + SampleTypeMussel:SampleIntervalT1",
+              "0 = SampleIntervalT2 + SampleTypeMussel:SampleIntervalT2",
+              "SampleIntervalT1 + SampleTypeMussel:SampleIntervalT1 = SampleIntervalT2 + SampleTypeMussel:SampleIntervalT2")
+
+
+chla_CA_hypo <- hypothesis(chla_CA, chl_hypo, robust = T)[[1]] %>%
+    dplyr::select(c(1,2,4,5)) %>%
+  rbind(chla_CA_pos) %>%
+  mutate(Site = "Cabretta")
+
+chla_DC_hypo <- hypothesis(chla_DC, chl_hypo, robust = T)[[1]] %>%
+    dplyr::select(c(1,2,4,5)) %>%
+  rbind(chla_DC_pos) %>%
+  mutate(Site = "Dean Creek")
+
+chla_RBH_hypo <- hypothesis(chla_RBH, chl_hypo, robust = T)[[1]] %>%
+    dplyr::select(c(1,2,4,5)) %>%
+  rbind(chla_RBH_pos) %>%
+  mutate(Site = "RBH Park")
+
+chl_interval_effectestimate <- rbind(chla_CA_hypo, chla_DC_hypo, chla_RBH_hypo, chla_grab_effectestimate) %>%
+  arrange(Site, Hypothesis) %>%
+      mutate(Estimate = round(Estimate, digits = 4)) %>%
+  rename(Contrast = "Hypothesis",
+         'Median estimate' = "Estimate",
+         lower = "CI.Lower",
+         upper = "CI.Upper") %>%
+  mutate(lower = round(lower, digits = 4),
+         upper = round(upper, digits = 4),
+         '95% CI' = paste("(", lower, ",", " ", upper, ")", sep = "")) %>%
+  dplyr::select(c(Site, Contrast, 'Median estimate', '95% CI')) %>%
+  flextable() %>%
+  merge_v(j = c('Site')) %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top") %>%
+  width(j = c('Median estimate', '95% CI'), width = 4, unit = "cm") %>%
+  border_inner_h()
+
+save_as_pptx(chl_interval_effectestimate, path = "Figures/CHLAIntervalEstimateSummary.pptx")
+```
+
+```{r Phytoplankton community -- interaction between sample type and site for total absolute cell abundance}
+comm_total <- community %>%
+  group_by(Site, Sample, Replicate) %>%
+  summarise(TotalAbundance_mL = sum(FunctionalCountSum_mL))
+
+community_TypexSite <- bf(TotalAbundance_mL ~ Site*Sample) + Gamma(link = "log")
+
+community_abs <- brm(
+  community_TypexSite,
+  data = comm_total,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+pp_check(community_abs, ndraws = 100, resp = "TotalAbundancemL")
+
+
+comm_abs_plot <- plot(conditional_effects(community_abs))
+```
+
+```{r Phytoplankton community -- total absolute cell abundance effect estimates and table}
+
+community_abs_pos <- merge(summarise_draws(community_abs), 
+                         summarise_draws(community_abs, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+           
+
+# apply list of hypotheses to each site
+total_abs_effectestimate <- hypothesis(community_abs, c(
+                            "SampleMussel = SampleControl",
+                            "0 = SampleControl + SiteDeanCreek:SampleControl", 
+                            "0 = SampleMussel + SiteDeanCreek:SampleMussel", 
+                            "SampleControl + SiteDeanCreek:SampleControl = SampleMussel + SiteDeanCreek:SampleMussel",
+                            "0 = SampleControl + SiteRBHPark:SampleControl",
+                            "0 = SampleMussel + SiteRBHPark:SampleMussel",
+                            "SampleControl + SiteRBHPark:SampleControl = SampleMussel + SiteRBHPark:SampleMussel") , robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_abs_pos) %>%
+  mutate(Site = ifelse(str_detect(Hypothesis, "RBHPark") == T, "RBH Park",
+                       ifelse(str_detect(Hypothesis, "DeanCreek") == T, "Dean Creek", "Cabretta"))) %>%
+  arrange(Site, Hypothesis) %>%
+    mutate(Estimate = round(Estimate, digits = 4)) %>%
+  rename(Contrast = "Hypothesis",
+         'Median estimate' = "Estimate",
+         lower = "CI.Lower",
+         upper = "CI.Upper") %>%
+  mutate(lower = round(lower, digits = 4),
+         upper = round(upper, digits = 4),
+         '95% CI' = paste("(", lower, ",", " ", upper, ")", sep = "")) %>%
+  dplyr::select(c(Site, Contrast, 'Median estimate', '95% CI')) %>%
+  flextable() %>%
+  merge_v(j = c('Site')) %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top") %>%
+  width(j = c('Median estimate', '95% CI'), width = 4, unit = "cm") %>%
+  border_inner_h()
+
+save_as_pptx(total_abs_effectestimate, path = "Figures/TotalAbsoluteAbundanceEstimateSummary_use.pptx")
+```
+
+```{r Phytoplankton community -- interaction between sample type and taxonomic group for absolute cell abundance}
+# metrics of phytoplankton community composition
+# ...absolute and relative cell abundance
+# ...absolute and relative biovolume
+# ...absolute and relative C and N biovolume?
+# ...should be run in a multivariate model
+
+# separate out complete df by site
+# for site-specific analyses of differences between sample intervals within sample types
+sitelist3 <- split(community, community$Site)
+
+lapply(seq_along(sitelist3), function(x) {
+    assign(c("CA_comm", "DC_comm", "RBH_comm")[x], sitelist3[[x]], envir=.GlobalEnv)
+    }
+)
+
+# poisson distribution for CA & DC absolute cell abundance data
+community_TypexGroup_poisson <- bf(FunctionalCountSum_mL ~ Sample*FunctionalGroup_zoo) + poisson()
+
+# zero-inflated poisson distribution for RBH absolute cell abundance data
+community_TypexGroup_poissonzero <- bf(FunctionalCountSum_mL ~ Sample*FunctionalGroup_zoo) + zero_inflated_poisson()
+
+community_CA_abs <- brm(
+  community_TypexGroup_poisson,
+  data = CA_comm,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+community_DC_abs <- brm(
+  community_TypexGroup_poisson ,
+  data = DC_comm,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+community_RBH_abs <- brm(
+  community_TypexGroup_poissonzero,
+  data = RBH_comm,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+pp_check(community_CA_abs, ndraws = 100, resp = "FunctionalCountSummL")
+pp_check(community_DC_abs, ndraws = 100, resp = "FunctionalCountSummL")
+pp_check(community_RBH_abs, ndraws = 100, resp = "FunctionalCountSummL")
+
+```
+
+```{r Phytoplankton community -- taxonomic group absolute cell abundance plots}
+# plot conditional effects
+
+community_abs_CA_plot <- conditional_effects(community_CA_abs)[[3]] %>%
+  mutate(Site = "CA")
+community_abs_DC_plot <- conditional_effects(community_DC_abs)[[3]] %>%
+  mutate(Site = "DC")
+community_abs_RBH_plot <- conditional_effects(community_RBH_abs)[[3]] %>%
+  mutate(Site = "RBH")
+
+cond_effects_community_abs <- rbind(community_abs_CA_plot, community_abs_DC_plot, community_abs_RBH_plot)
+
+# bar chart used in main text to show median estimates
+
+ggplot(data = cond_effects_community_abs,
+       aes(y = estimate__, 
+           x = Sample, 
+           fill = FunctionalGroup_zoo)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Site) +
+  theme_tufte() +
+  theme(axis.line = element_line())
+
+# effect estimates
+# build dataframe of effect estimates
+
+abs_comm_hypotheses <- rbind(CA_comm_abs_hypo, DC_comm_abs_hypo, RBH_comm_abs_hypo) %>%
+  dplyr::select(c("Hypothesis","Estimate", "CI.Lower", "CI.Upper", "Site")) %>%
+  rename(variable = Hypothesis,
+         median = Estimate) %>%
+  rbind(community_CA_abs_pos, community_DC_abs_pos, community_RBH_abs_pos) %>%
+  mutate(Group = ifelse(str_detect(variable, "Het"), "heterotrophic zooplankton",
+                                    ifelse(str_detect(variable, "Dino"), "dinoflagellate",
+                                                      ifelse(str_detect(variable, "Cent"), "centric diatom", "pennate diatom"))))
+
+# and plot
+
+ggplot(data = abs_comm_hypotheses %>%
+         mutate(Group = factor(Group, levels = c("heterotrophic zooplankton", "dinoflagellate", "centric diatom", "pennate diatom"))),
+       aes(x = median,
+           y = Group,
+           xmin = CI.Lower,
+           xmax = CI.Upper,
+           color = variable)) +
+  geom_vline(xintercept = 0, linetype = "dashed", size = 1.5)+
+  geom_point(size = 5) +
+  geom_errorbar(width = .2,
+                size = 1.5) +
+  xlim(-Inf, 0) +
+  facet_wrap(~Site, scales = "free") +
+  guides(color = "none") +
+  theme_tufte() +
+  theme(axis.line = element_line())
+
+# # conditional effects plot used in supplement
+# 
+# ggplot(data = cond_effects_community_abs,
+#        aes(y = estimate__,
+#            x = FunctionalGroup_zoo,
+#            color = Sample,
+#            ymin = lower__,
+#            ymax = upper__)) +
+#   geom_point(position = position_dodge(.9),
+#              size = 4) +
+#   geom_errorbar(width = .7,
+#                 size = 1.5,
+#                 position = position_dodge(.9)) +
+#   ylim(0, 1070) +
+#   facet_wrap(~Site) +
+#   theme_tufte() +
+#   theme(axis.line = element_line())
+# 
+# # raw data layers over conditional effects for supplement
+# ggplot(data = community, aes(x = FunctionalGroup_zoo, y = FunctionalCountSum_mL, color = Sample)) +
+#   geom_point(position = position_dodge(.9)) +
+#   facet_wrap(~Site) +
+#   ylim(0, 1070) +
+#   theme_tufte() +
+#   theme(axis.line = element_line())
+
+```
+
+```{r Phytoplankton community -- taxonomic group for absolute cell abundance effect estimates and table}
+community_CA_abs_pos <- merge(summarise_draws(community_CA_abs), 
+                         summarise_draws(community_CA_abs, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+           
+
+community_DC_abs_pos <- merge(summarise_draws(community_DC_abs), 
+                         summarise_draws(community_DC_abs, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+community_RBH_abs_pos <- merge(summarise_draws(community_RBH_abs), 
+                         summarise_draws(community_RBH_abs, ~quantile(.x, probs = c(0.025, 0.975))), 
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+# hypothesis testing to compare functional groups across sample types for each site
+# b_Intercept = b_SampleGrab:b_FunctionalGroup_zooPennatediatom
+
+comm_hypo <- c("SampleMussel = SampleControl",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooCentricdiatom = 0",
+                   "SampleControl + SampleControl:FunctionalGroup_zooCentricdiatom = 0",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooCentricdiatom = SampleControl + SampleControl:FunctionalGroup_zooCentricdiatom",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooDinoflagellate = 0",
+                   "SampleControl + SampleControl:FunctionalGroup_zooDinoflagellate = 0",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooDinoflagellate = SampleControl + SampleControl:FunctionalGroup_zooDinoflagellate",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooHeterotrophiczooplankton = 0",
+                   "SampleControl + SampleControl:FunctionalGroup_zooHeterotrophiczooplankton = 0",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooHeterotrophiczooplankton = SampleControl + SampleControl:FunctionalGroup_zooHeterotrophiczooplankton"
+)
+
+
+# apply list of hypotheses to each site
+CA_comm_abs_hypo <- hypothesis(community_CA_abs, comm_hypo, robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_CA_abs_pos) %>%
+  mutate(Site = "Cabretta")
+
+DC_comm_abs_hypo <- hypothesis(community_DC_abs, comm_hypo, robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_DC_abs_pos) %>%
+  mutate(Site = "Dean Creek")
+
+RBH_comm_abs_hypo <- hypothesis(community_RBH_abs, comm_hypo, robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_RBH_abs_pos) %>%
+  mutate(Site = "RBH Park")
+
+functional_abs_effectestimate <- rbind(CA_comm_abs_hypo, DC_comm_abs_hypo, RBH_comm_abs_hypo) %>%
+    mutate(Estimate = round(Estimate, digits = 4)) %>%
+  rename(Contrast = "Hypothesis",
+         'Median estimate' = "Estimate",
+         lower = "CI.Lower",
+         upper = "CI.Upper") %>%
+  mutate('Functional Group' = ifelse(str_detect(Contrast, "Centric") == T, "centric diatom",
+                                     ifelse(str_detect(Contrast, "Dino") == T, "dinoflagellate",
+                                            ifelse(str_detect(Contrast, "zoo") == T, "protozooplankton", "pennate diatom"))),
+         lower = round(lower, digits = 4),
+         upper = round(upper, digits = 4),
+         '95% CI' = paste("(", lower, ",", " ", upper, ")", sep = "")) %>%
+  dplyr::select(c(Site, 'Functional Group', Contrast, 'Median estimate', '95% CI')) %>%
+  arrange('Functional Group', Site) %>%
+  flextable() %>%
+  merge_v(j = c('Site')) %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top") %>%
+  width(j = c('Median estimate', '95% CI'), width = 4, unit = "cm") %>%
+  border_inner_h()
+
+save_as_pptx(functional_abs_effectestimate, path = "Figures/FunctionalAbsoluteAbundanceEstimateSummary.pptx")
+
+```
+
+```{r phytoplankton community -- interaction between sample type and trophic level for relative abundance}
+diatom <- community %>%
+  mutate(FunctionalGroup_zoo = ifelse(str_detect(FunctionalGroup_zoo, "diatom") == TRUE, "Diatom", as.character(FunctionalGroup_zoo))) %>%
+  group_by(Site, Sample, Replicate, FunctionalGroup_zoo) %>%
+  summarise(RelativeAbundance_new = sum(RelativeAbundance))
+
+# separate out complete df by site
+# for site-specific analyses of differences between sample intervals within sample types
+sitelist4 <- split(diatom, diatom$Site)
+
+lapply(seq_along(sitelist4), function(x) {
+    assign(c("CA_diatom", "DC_diatom", "RBH_diatom")[x], sitelist4[[x]], envir=.GlobalEnv)
+    }
+)
+
+# beta distribution for relative cell abundance (%)
+
+# CA & DC
+community_TypexGroup_beta_zero <- bf(RelativeAbundance_new ~ Sample*FunctionalGroup_zoo) + zero_inflated_beta()
+
+# RBH
+community_TypexGroup_beta_zeroone <- bf(RelativeAbundance_new ~ Sample*FunctionalGroup_zoo) + zero_one_inflated_beta()
+
+community_2CA_2rel <- brm(
+  community_TypexGroup_beta_zero,
+  data = CA_diatom,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+community_2DC_2rel <- brm(
+  community_TypexGroup_beta_zero,
+  data = DC_diatom,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+community_2RBH_2rel <- brm(
+  community_TypexGroup_beta_zeroone,
+  data = RBH_diatom,
+  chains = 4,
+  cores = 4,
+  iter = 10000,
+  backend = "cmdstanr",
+  refresh = 0
+)
+
+pp_check(community_2CA_2rel, ndraws = 100, resp = "RelativeAbundancenew")
+pp_check(community_2DC_2rel, ndraws = 100, resp = "RelativeAbundancenew")
+pp_check(community_2RBH_2rel, ndraws = 100, resp = "RelativeAbundancenew")
+
+community_2rel_2CA_2plot <- conditional_effects(community_2CA_2rel)[[3]] %>%
+  mutate(Site = "CA")
+community_2rel_2DC_2plot <- conditional_effects(community_2DC_2rel)[[3]] %>%
+  mutate(Site = "DC")
+community_2rel_2RBH_2plot <- conditional_effects(community_2RBH_2rel)[[3]] %>%
+  mutate(Site = "RBH")
+```
+
+```{r phytoplankton community -- trophic level relative abundance effect estimates and table}
+
+community_2CA_2rel_2pos <- merge(summarise_draws(community_2CA_2rel),
+                         summarise_draws(community_2CA_2rel, ~quantile(.x, probs = c(0.025, 0.975))),
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+community_2DC_2rel_2pos <- merge(summarise_draws(community_2DC_2rel),
+                         summarise_draws(community_2DC_2rel, ~quantile(.x, probs = c(0.025, 0.975))),
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+community_2RBH_2rel_2pos <- merge(summarise_draws(community_2RBH_2rel),
+                         summarise_draws(community_2RBH_2rel, ~quantile(.x, probs = c(0.025, 0.975))),
+                         by = "variable") %>%
+  filter(variable == "b_SampleControl" | variable == "b_SampleMussel") %>%
+  dplyr::select(c(1,3,11,12)) %>%
+  rename(Hypothesis = "variable",
+         Estimate = "median",
+         CI.Lower = "2.5%",
+         CI.Upper = "97.5%")
+
+
+comm_2hypo <- c("SampleMussel = SampleControl",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooDinoflagellate = 0",
+                   "SampleControl + SampleControl:FunctionalGroup_zooDinoflagellate = 0",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooDinoflagellate = SampleControl + SampleControl:FunctionalGroup_zooDinoflagellate",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooHeterotrophiczooplankton = 0",
+                   "SampleControl + SampleControl:FunctionalGroup_zooHeterotrophiczooplankton = 0",
+                   "SampleMussel + SampleMussel:FunctionalGroup_zooHeterotrophiczooplankton = SampleControl + SampleControl:FunctionalGroup_zooHeterotrophiczooplankton"
+)
+
+# apply list of hypotheses to each site
+# diatom_2comm_2rel_2hypo <- hypothesis(community_2diatom_2rel, comm_2hypo, robust = T)[[1]] %>%
+#   mutate(Site = "diatom")
+CA_2comm_2rel_2hypo <- hypothesis(community_2CA_2rel, comm_2hypo, robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_2CA_2rel_2pos) %>%
+  mutate(Site = "Cabretta")
+
+DC_2comm_2rel_2hypo <- hypothesis(community_2DC_2rel, comm_2hypo, robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_2DC_2rel_2pos) %>%
+  mutate(Site = "Dean Creek")
+
+RBH_2comm_2rel_2hypo <- hypothesis(community_2RBH_2rel, comm_2hypo, robust = T)[[1]] %>%
+  dplyr::select(c(1,2,4,5)) %>%
+  rbind(community_2RBH_2rel_2pos) %>%
+  mutate(Site = "RBH Park")
+
+trophic_rel_effectestimate <- rbind(CA_2comm_2rel_2hypo, DC_2comm_2rel_2hypo, RBH_2comm_2rel_2hypo) %>%
+    mutate(Estimate = round(Estimate, digits = 4)) %>%
+  rename(Contrast = "Hypothesis",
+         'Median estimate' = "Estimate",
+         lower = "CI.Lower",
+         upper = "CI.Upper") %>%
+  mutate('Trophic Level' = ifelse(str_detect(Contrast, "Dino") == T, "mixotrophic",
+                                            ifelse(str_detect(Contrast, "zoo") == T, "heterotrophic", "autotrophic")),
+         lower = round(lower, digits = 4),
+         upper = round(upper, digits = 4),
+         '95% CI' = paste("(", lower, ",", " ", upper, ")", sep = "")) %>%
+  dplyr::select(c(Site, 'Trophic Level', Contrast, 'Median estimate', '95% CI')) %>%
+  arrange('Trophic Level', Site) %>%
+  flextable() %>%
+  merge_v(j = c('Site')) %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top") %>%
+  width(j = c('Median estimate', '95% CI'), width = 4, unit = "cm") %>%
+  border_inner_h()
+
+save_as_pptx(trophic_rel_effectestimate, path = "Figures/TrophicRelativeAbundanceEstimateSummary.pptx")
+
+```
+
+```{r Phytoplankton community -- pie charts for diatom relative abundance and conditional effects plots and stacked bar plots for relative abundance}
+
+cond_effects_community_rel <- rbind(community_rel_CA_plot, community_rel_DC_plot, community_rel_RBH_plot)
+
+diatompiechart <- cond_effects_community_rel %>%
+  filter(str_detect(FunctionalGroup_zoo, "diatom") == TRUE)
+
+
+ggplot(data = diatompiechart %>% filter(Site == "CA",
+                                        Sample == "Grab"),
+       aes(x ="", y = estimate__, fill = FunctionalGroup_zoo)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start = 0) +
+  theme_tufte()
+
+ggplot(data = diatompiechart %>% filter(Site == "CA",
+                                        Sample == "Mussel"),
+       aes(x ="", y = estimate__, fill = FunctionalGroup_zoo)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start = 0) +
+  theme_tufte()
+
+ggplot(data = diatompiechart %>% filter(Site == "DC",
+                                        Sample == "Grab"),
+       aes(x ="", y = estimate__, fill = FunctionalGroup_zoo)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start = 0) +
+  theme_tufte()
+
+ggplot(data = diatompiechart %>% filter(Site == "DC",
+                                        Sample == "Mussel"),
+       aes(x ="", y = estimate__, fill = FunctionalGroup_zoo)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start = 0) +
+  theme_tufte()
+
+ggplot(data = diatompiechart %>% filter(Site == "RBH",
+                                        Sample == "Grab"),
+       aes(x ="", y = estimate__, fill = FunctionalGroup_zoo)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start = 0) +
+  theme_tufte()
+
+ggplot(data = diatompiechart %>% filter(Site == "RBH",
+                                        Sample == "Mussel"),
+       aes(x ="", y = estimate__, fill = FunctionalGroup_zoo)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start = 0) +
+  theme_tufte()
+
+
+# ggplot(data = cond_effects_community_rel %>% 
+#          mutate(FunctionalGroup_zoo = factor(FunctionalGroup_zoo, levels = c("Pennate diatom", "Centric diatom", "Dinoflagellate", "Heterotrophic zooplankton")),
+#                 Sample = factor(Sample, levels = c("Grab", "Control", "Mussel"))),
+#        aes(y = estimate__, 
+#            x = FunctionalGroup_zoo, 
+#            color = Sample,
+#            ymin = lower__, 
+#            ymax = upper__)) +
+#   geom_point(position = position_dodge(.9),
+#              size = 4) +
+#   geom_errorbar(width = .7,
+#                 size = 1.5,
+#                 position = position_dodge(.9)) +
+#   ylim(0, 1) +
+#   facet_wrap(~Site, ncol = 1) +
+#   theme_tufte() +
+#   theme(axis.line = element_line())
+
+# ggplot(data = community %>% 
+#          mutate(FunctionalGroup_zoo = factor(FunctionalGroup_zoo, levels = c("Pennate diatom", "Centric diatom", "Dinoflagellate", "Heterotrophic zooplankton")),
+#                 Sample = factor(Sample, levels = c("Grab", "Control", "Mussel"))),
+#                 # Replicate_plot = ifelse(Replicate == 5, 4, Replicate)),
+#          # group_by(Site, Sample, FunctionalGroup_zoo) %>%
+#          # summarize(median = median(RelativeAbundance)*100), 
+#        aes(x = Replicate, 
+#            y = RelativeAbundance, 
+#            fill = FunctionalGroup_zoo)) +
+#   geom_bar(stat = "identity") +
+#   ylim(0, 1) +
+#   facet_grid(Site~Sample, scales = "free") +
+#     theme_tufte() +
+#   theme(axis.line = element_line())
+```
+
+```{r ysi supplemental data and figures}
+
+ysi_mean <- ysi %>%
+  group_by(Site, SampleType, SampleInterval, variable) %>%
+  summarise(mean = mean(value),
+            se = se(value))
+
+ggplot(data = ysi_mean, aes(x = SampleInterval, y = mean, 
+                            ymin = mean-se, ymax = mean+se, 
+                            color = SampleType)) +
+  geom_line() +
+  geom_point(size = 4) +
+  geom_errorbar(width = .2,
+                size = 1) +
+  facet_grid(variable ~ Site, scales = "free") +
+  theme_tufte() +
+  theme(axis.line = element_line())
+  
+
+```
+
