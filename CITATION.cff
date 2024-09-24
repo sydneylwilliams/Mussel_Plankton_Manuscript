@@ -1,0 +1,80 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  Top-down control by ribbed mussels (Geukensia demissa) on
+  microplankton communities in southeastern U.S. salt
+  marshes
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+authors:
+  - given-names: Sydney
+    family-names: Williams
+    email: slwilliams@uga.edu
+    affiliation: >-
+      University of Georgia Marine Extension and Georgia Sea
+      Grant
+    orcid: 'https://orcid.org/0000-0002-9176-1838'
+  - given-names: Donovan
+    family-names: Mitchell
+  - given-names: Edward
+    family-names: Phlips
+    email: phlips@ufl.edu
+    affiliation: University of Florida
+    orcid: 'https://orcid.org/0000-0002-0480-2479'
+  - given-names: Rachel
+    family-names: Guy
+    email: rachel.guy@dnr.ga.gov
+    affiliation: Sapelo Island National Estuarine Research Reserve
+  - given-names: Nikki
+    family-names: Dix
+    email: nikki.dix@dep.state.fl.us
+    affiliation: >-
+      Guana Tolomato Matanzas National Estuarine Research
+      Reserve
+    orcid: 'https://orcid.org/0000-0002-0063-5167'
+  - given-names: Christine
+    family-names: Angelini
+    email: christine.angelini@essie.ufl.edu
+    affiliation: University of Florida
+    orcid: 'https://orcid.org/0000-0002-6669-5269'
+abstract: >-
+  Benthic grazers and suspension feeders, such as oysters
+  and mussels, may play a disproportionate role in
+  controlling algal biomass as well as microplankton
+  community composition in estuarine systems. Nonetheless,
+  their effects on microplankton communities remain poorly
+  understood across environmental contexts and in real-world
+  settings, in part from a paucity of in situ measurements.
+  Here, we conduct in situ manipulative field experiments to
+  evaluate the effects of the Atlantic ribbed mussel,
+  Geukensia demissa, on bulk chlorophyll a (µg L-1);
+  absolute cell abundance (individuals mL-1) of
+  microplankton groups (i.e., pennate and centric diatoms,
+  dinoflagellates, and heterotrophic microzooplankton); and
+  relative cell abundance (%) of microplankton trophic
+  levels (i.e., auto-, mixo-, and heterotrophic) across
+  three salt marsh sites in the southeastern U.S. (GA and
+  FL). Irrespective of site-specific conditions, mussels
+  efficiently grazed on plankton to depleted bulk
+  chlorophyll a concentrations and absolute cell abundances.
+  At two of the three sites, mussels also shifted
+  microplankton community composition toward a structure
+  made up of substantially smaller proportions of autotrophs
+  and larger proportions of mixotrophs. Given the essential
+  role of the microplankton community in mediating the
+  ecological and geochemical functioning of estuaries, our
+  results highlight that – in real-world settings – mussels
+  play a powerful role every tidal cycle in modifying such
+  functions through their prolific and selective grazing on
+  this community.  
+keywords:
+  - benthic grazing
+  - benthic-pelagic coupling
+  - bivalve
+  - water quality
+  - chlorophyll a
+  - microplankton community
